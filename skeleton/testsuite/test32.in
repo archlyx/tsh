@@ -1,0 +1,5 @@
+pwd > cur.dir.txt
+cat cur.dir.txt
+wc < cur.dir.txt > file.test.txt
+cat file.test.txt
+exit
