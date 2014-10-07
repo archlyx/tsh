@@ -1,0 +1,5 @@
+ls -la ../ > dir.test.txt
+wc < dir.test.txt
+pwd > cur.dir.test.txt
+ls < cur.dir.test.txt 
+exit
