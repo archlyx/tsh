@@ -103,7 +103,17 @@ EXTERN void RunCmdBg(commandT*);
 EXTERN void RunCmdPipe(commandT*, commandT*);
 
 /***********************************************************************
- *  Title: Runs two command with output redirection
+ *  Title: Runs a command with output & input redirection
+ * ---------------------------------------------------------------------
+ *    Purpose: Runs a command and redirects the output to a file and 
+ *    redirect input from a file.
+ *    Input: a command structure structure and a file name
+ *    Output: void
+ ***********************************************************************/
+EXTERN void RunCmdRedirInOut(commandT*, char*, char*);
+
+/***********************************************************************
+ *  Title: Runs a command with output redirection
  * ---------------------------------------------------------------------
  *    Purpose: Runs a command and redirects the output to a file.
  *    Input: a command structure structure and a file name
@@ -112,7 +122,7 @@ EXTERN void RunCmdPipe(commandT*, commandT*);
 EXTERN void RunCmdRedirOut(commandT*, char*);
 
 /***********************************************************************
- *  Title: Runs two command with input redirection
+ *  Title: Runs a command with input redirection
  * ---------------------------------------------------------------------
  *    Purpose: Runs a command and redirects the input to a file.
  *    Input: a command structure structure and a file name

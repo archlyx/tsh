@@ -64,6 +64,8 @@
 
 #define NBUILTINCOMMANDS (sizeof BuiltInCommands / sizeof(char*))
 
+char* BuiltInCommands[] = {"cd", "fg", "bg", "jobs", "alias", "unalias"};
+
 typedef struct bgjob_l {
   pid_t pid;
   struct bgjob_l* next;
@@ -72,7 +74,7 @@ typedef struct bgjob_l {
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
 
-/************Function Prototypes******************************************/
+/************Function Prototypes*****************************************/
 /* run command */
 static void RunCmdFork(commandT*, bool);
 /* runs an external program command after some checks */
@@ -85,7 +87,12 @@ static void Exec(commandT*, bool);
 static void RunBuiltInCmd(commandT*);
 /* checks whether a command is a builtin command */
 static bool IsBuiltIn(char*);
+
 /************External Declaration*****************************************/
+/* cd:
+ *   change directory of current process
+**/
+static void ChangeDirectory(char*);
 
 /**************Implementation***********************************************/
 int total_task;
@@ -93,8 +100,22 @@ void RunCmd(commandT** cmd, int n)
 {
   int i;
   total_task = n;
-  if(n == 1)
-    RunCmdFork(cmd[0], TRUE);
+  if (n == 1) {
+    if (cmd[0]->is_redirect_in) {
+      if (cmd[0]->is_redirect_out) {
+        RunCmdRedirInOut(cmd[0], cmd[0]->redirect_in, cmd[0]->redirect_out);
+      }
+      else {
+        RunCmdRedirIn(cmd[0], cmd[0]->redirect_in);
+      }
+    }
+    else if (cmd[0]->is_redirect_out) {
+      RunCmdRedirOut(cmd[0], cmd[0]->redirect_out);
+    }
+    else {
+      RunCmdFork(cmd[0], TRUE);
+    }
+  }
   else{
     RunCmdPipe(cmd[0], cmd[1]);
     for(i = 0; i < n; i++)
@@ -125,12 +146,48 @@ void RunCmdPipe(commandT* cmd1, commandT* cmd2)
 {
 }
 
+void RunCmdRedirInOut(commandT* cmd, char* inFile, char* outFile)
+{
+  int fidOut = open(outFile, O_WRONLY | O_CREAT, 0644);
+  int fidIn = open(inFile, O_RDONLY);
+
+  int origStdout = dup(1);
+  int origStdin = dup(0);
+
+  dup2(fidOut, 1);
+  dup2(fidIn, 0);
+
+  RunCmdFork(cmd, TRUE);
+
+  dup2(origStdout, 1);
+  dup2(origStdin, 0);
+
+  close(origStdout);
+  close(origStdin);
+}
+
 void RunCmdRedirOut(commandT* cmd, char* file)
 {
+  int fid = open(file, O_WRONLY | O_CREAT, 0644);
+  int origStdout = dup(1);
+  dup2(fid, 1);
+
+  RunCmdFork(cmd, TRUE);
+
+  dup2(origStdout, 1);
+  close(origStdout);
 }
 
 void RunCmdRedirIn(commandT* cmd, char* file)
 {
+  int fid = open(file, O_RDONLY);
+  int origStdin = dup(0);
+  dup2(fid, 0);
+
+  RunCmdFork(cmd, TRUE);
+
+  dup2(origStdin, 0);
+  close(origStdin);
 }
 
 
@@ -195,22 +252,73 @@ static bool ResolveExternalCmd(commandT* cmd)
 
 static void Exec(commandT* cmd, bool forceFork)
 {
+  int status;
+  pid_t childPid = fork();
+
+  if (childPid > 0) {
+    waitpid(childPid, &status, WNOHANG | WUNTRACED);
+  }
+  else if (childPid == 0) {
+    execv(cmd->name, cmd->argv);
+    PrintPError();
+  }
+  else {
+    PrintPError("Fork failed!");
+  }
+
 }
 
 static bool IsBuiltIn(char* cmd)
 {
+  int i;
+  for (i = 0; i < NBUILTINCOMMANDS; i++) {
+    if (strcmp(cmd, BuiltInCommands[i]) == 0)
+      return TRUE;
+  }
   return FALSE;     
 }
 
 
 static void RunBuiltInCmd(commandT* cmd)
 {
+  if (strcmp("cd", cmd->argv[0]) == 0) {
+    ChangeDirectory(cmd->argv[1]);
+  }
+  if (strcmp("fg", cmd->argv[0]) == 0) {
+    // FIXME fg
+  }
+  if (strcmp("bg", cmd->argv[0]) == 0) {
+    // FIXME bg
+  }
+  if (strcmp("jobs", cmd->argv[0]) == 0) {
+    // FIXME jobs
+  }
+  if (strcmp("alias", cmd->argv[0]) == 0) {
+    // FIXME alias
+  }
+  if (strcmp("unalias", cmd->argv[0]) == 0) {
+    // FIXME unalias
+  }
 }
 
 void CheckJobs()
 {
 }
 
+void ChangeDirectory(char* path)
+{
+  char* newPath = (path != NULL) ? path : getenv("HOME");
+  int err = chdir(newPath);
+
+  char* errMsg = malloc(sizeof(char*) * (strlen(newPath + 3)));
+  if (err < 0) {
+    sprintf(errMsg, "cd: %s", newPath);
+    PrintPError(errMsg);
+  }
+  free(errMsg);
+}
+
+void 
 
 commandT* CreateCmdT(int n)
 {
