@@ -68,6 +68,8 @@ char* BuiltInCommands[] = {"cd", "fg", "bg", "jobs", "alias", "unalias"};
 
 typedef struct bgjob_l {
   pid_t pid;
+  int order;
+  char* cmdline;
   struct bgjob_l* next;
 } bgjobL;
 
@@ -93,6 +95,12 @@ static bool IsBuiltIn(char*);
  *   change directory of current process
 **/
 static void ChangeDirectory(char*);
+
+/* Background Jobs: */
+static void AddBgJob(pid_t, char*);
+static bgjobL* QueryBgJob(pid_t);
+static void RemoveBgJob(pid_t);
+static void FreeBgJob(bgjobL*);
 
 /**************Implementation***********************************************/
 int total_task;
@@ -256,11 +264,15 @@ static void Exec(commandT* cmd, bool forceFork)
   pid_t childPid = fork();
 
   if (childPid > 0) {
-    waitpid(childPid, &status, WNOHANG | WUNTRACED);
+    if (cmd->bg == 0) {
+      waitpid(childPid, &status, 0);
+    }
+    AddBgJob(childPid, cmd->cmdline);
   }
   else if (childPid == 0) {
     execv(cmd->name, cmd->argv);
-    PrintPError();
+    PrintPError("External command error!");
+    exit(1);
   }
   else {
     PrintPError("Fork failed!");
@@ -303,6 +315,18 @@ static void RunBuiltInCmd(commandT* cmd)
 
 void CheckJobs()
 {
+  pid_t childPid;
+  bgjobL* bgjob;
+  int status;
+
+  while((childPid = waitpid(-1, &status, WNOHANG)) > 0) {
+    bgjob = QueryBgJob(childPid);
+    
+    printf("[%d]   Done                    %s\n", bgjob->order, bgjob->cmdline);
+    fflush(stdout);
+
+    RemoveBgJob(childPid);
+  }
 }
 
 void ChangeDirectory(char* path)
@@ -318,7 +342,61 @@ void ChangeDirectory(char* path)
   free(errMsg);
 }
 
-void 
+void AddBgJob(pid_t pid, char* cmdline) {
+  bgjobL* newJob;
+  bgjobL* current = bgjobs;
+
+  newJob = (bgjobL*)malloc(sizeof(bgjobL));
+  newJob->pid = pid;
+  newJob->cmdline = (char*)malloc(sizeof(char*) * MAXLINE);
+  newJob->cmdline = strdup(cmdline);
+  newJob->next = NULL;
+  
+  if (current == NULL) {
+    newJob->order = 1;
+    bgjobs = newJob;
+  }
+  else {
+    while (current->next) {
+      current = current->next;
+    }
+    newJob->order = current->order + 1;
+    current->next = newJob;
+  }
+  
+}
+
+bgjobL* QueryBgJob(pid_t pid) {
+  bgjobL* current = bgjobs;
+
+  while (current->pid != pid)
+    current = current->next;
+  
+  return current;
+}
+
+void RemoveBgJob(pid_t pid) {
+  bgjobL* previous = NULL;
+  bgjobL* current = bgjobs;
+
+  while (current->pid != pid) {
+    previous = current;
+    current = current->next;
+  }
+
+  if (previous)
+    previous->next = current->next;
+  else
+    bgjobs = current->next;
+
+  FreeBgJob(current);
+}
+
+
+void FreeBgJob(bgjobL* bgJob) {
+  if(bgJob->cmdline != NULL) free(bgJob->cmdline);
+  free(bgJob);
+}
 
 commandT* CreateCmdT(int n)
 {
