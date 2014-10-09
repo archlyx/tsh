@@ -113,6 +113,8 @@ static void ResumeBgJob(pid_t);
 
 /* Foreground Jobs: */
 static void UpdateFgJob(pid_t, char*);
+static void FreeFgJob();
+static void MoveToFg(int);
 
 /* Show Jobs: */
 static void ShowJobList();
@@ -282,6 +284,7 @@ static void Exec(commandT* cmd, bool forceFork)
     if (cmd->bg == 0) {
       UpdateFgJob(childPid, cmd->cmdline);
       waitpid(childPid, &status, WUNTRACED);
+      FreeFgJob();
     }
     else {
       AddBgJob(childPid, cmd->cmdline, 1);
@@ -316,7 +319,10 @@ static void RunBuiltInCmd(commandT* cmd)
     ChangeDirectory(cmd->argv[1]);
   }
   if (strcmp("fg", cmd->argv[0]) == 0) {
-    // FIXME fg
+    if (cmd->argv[1])
+      MoveToFg(atoi(cmd->argv[1]));
+    else
+      perror("fg");
   }
   if (strcmp("bg", cmd->argv[0]) == 0) {
     if (cmd->argv[1])
@@ -353,25 +359,23 @@ void CheckJobs()
 
 void ShowJobList()
 {
-  char status[7];
-  char bgMark;
+  char status[8];
   bgjobL* current = bgjobs;
 
   while (current) {
     switch (current->status) {
       case 0:
-        strcpy(status, "Done   ");
-        bgMark = ' ';
+        sprintf(status, "Done   ");
+        printf("[%d]   %s                 %s\n", current->jobid, status, current->cmdline);
         break;
       case 1:
-        strcpy(status, "Running");
-        bgMark = '&';
+        sprintf(status, "Running");
+        printf("[%d]   %s                 %s&\n", current->jobid, status, current->cmdline);
         break;
       case 2:
-        strcpy(status, "Stopped");
-        bgMark = ' ';
+        sprintf(status, "Stopped");
+        printf("[%d]   %s                 %s\n", current->jobid, status, current->cmdline);
     }
-    printf("[%d]   %s                 %s%c\n", current->jobid, status, current->cmdline, bgMark);
     fflush(stdout);
 
     current = current->next;
@@ -457,7 +461,8 @@ void ResumeBgJob(int jobid) {
   }
 
   if (current->jobid == jobid) {
-    kill(-current->pid, SIGCONT);
+    current->status = 1;
+    kill(current->pid, SIGCONT);
   }
   else {
     PrintPError("bg: The job does not exist.");
@@ -473,25 +478,51 @@ void UpdateFgJob(pid_t pid, char* cmdline) {
   fgjob->cmdline = strdup(cmdline);
 }
 
+void FreeFgJob() {
+  if (fgjob->cmdline != NULL) free(fgjob->cmdline);
+  free(fgjob);
+  fgjob = NULL;
+}
+
 void StopFgProc() {
-  printf("\n");
   if (fgjob) {
     kill(-fgjob->pid, SIGINT);
   }
-  fflush(stdout);
 }
 
 void SuspendFgProc() {
   int jobid;
   
-  printf("\n");
   if (fgjob) {
     kill(-fgjob->pid, SIGTSTP);
     jobid = AddBgJob(fgjob->pid, fgjob->cmdline, 2);
-    printf("[%d]   Stopped                 %s\n", jobid, fgjob->cmdline);
+    printf("\n[%d]   Stopped                 %s\n", jobid, fgjob->cmdline);
+    fflush(stdout);
+    FreeFgJob();
   }
-  //FIXME: Free fgjob
-  fflush(stdout);
+}
+
+void MoveToFg(int jobid) {
+  int status;
+  int pid;
+  bgjobL* current = bgjobs;
+
+  while (current->jobid != jobid) {
+    current = current->next;
+  }
+
+  if (current->jobid == jobid) {	
+    pid = current->pid;
+
+    printf("Status: %d", current->status);
+    if (current->status == 2)
+      kill(-pid, SIGCONT);
+
+    UpdateFgJob(pid, current->cmdline);
+    RemoveBgJob(pid);
+    waitpid(-pid, &status, 0);
+    FreeFgJob();
+  }
 }
 
 commandT* CreateCmdT(int n)

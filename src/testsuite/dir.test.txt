@@ -1,0 +1,25 @@
+total 168
+drwxrwxr-x 3 aqualab aqualab  4096 Oct  9 13:59 .
+drwxrwxr-x 5 aqualab aqualab  4096 Oct  9 13:35 ..
+-rw-r--r-- 1 aqualab aqualab  1985 Oct  2 13:10 config.h
+-rw-r--r-- 1 aqualab aqualab  2293 Oct  2 13:10 grading-guide.txt
+-rw------- 1 aqualab aqualab  1679 Oct  2 13:10 id_aqualab
+-rw-r--r-- 1 aqualab aqualab   416 Oct  2 13:10 id_aqualab.pub
+-rw-r--r-- 1 aqualab aqualab  5744 Oct  7 17:56 interpreter.c
+-rw-r--r-- 1 aqualab aqualab  2368 Oct  2 13:10 interpreter.h
+-rw-rw-r-- 1 aqualab aqualab  6380 Oct  9 13:53 interpreter.o
+-rw-r--r-- 1 aqualab aqualab  2944 Oct  2 13:10 io.c
+-rw-r--r-- 1 aqualab aqualab  4072 Oct  2 13:10 io.h
+-rw-rw-r-- 1 aqualab aqualab  5504 Oct  9 13:53 io.o
+-rw-r--r-- 1 aqualab aqualab  2091 Oct  7 16:45 Makefile
+-rw-r--r-- 1 aqualab aqualab   417 Oct  2 13:10 README.api
+-rw-rw-r-- 1 aqualab aqualab 12374 Oct  9 13:59 runtime.c
+-rw-rw-r-- 1 aqualab aqualab  7726 Oct  9 13:35 runtime.h
+-rw-rw-r-- 1 aqualab aqualab 17244 Oct  9 13:59 runtime.o
+drwxrwxr-x 2 aqualab aqualab  4096 Oct  9 16:21 testsuite
+-rw-r--r-- 1 aqualab aqualab    15 Oct  2 13:10 test_type
+-rwxrwxr-x 1 aqualab aqualab 28694 Oct  9 13:59 tsh
+-rw-rw-r-- 1 aqualab aqualab  3087 Oct  9 13:35 tsh.c
+-rw-r--r-- 1 aqualab aqualab  1912 Oct  2 13:10 tsh.h
+-rw-rw-r-- 1 aqualab aqualab  3340 Oct  9 13:53 tsh.o
+-rw-r--r-- 1 aqualab aqualab   113 Oct  2 13:10 vm_test.sh
