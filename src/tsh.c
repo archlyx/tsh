@@ -34,6 +34,8 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
+#include <unistd.h>
+#include <stdio.h>
 
 /************Private include**********************************************/
 #include "tsh.h"
@@ -96,5 +98,13 @@ int main (int argc, char *argv[])
 
 static void sig(int signo)
 {
+  switch(signo) {
+    case SIGINT:
+      StopFgProc();
+      break;
+    case SIGTSTP:
+      SuspendFgProc();
+      break;
+  }
 }
 

@@ -68,13 +68,21 @@ char* BuiltInCommands[] = {"cd", "fg", "bg", "jobs", "alias", "unalias"};
 
 typedef struct bgjob_l {
   pid_t pid;
-  int order;
+  int jobid;
+  int status;
   char* cmdline;
   struct bgjob_l* next;
 } bgjobL;
 
+typedef struct fgjob_l {
+  pid_t pid;
+  int jobid;
+  char* cmdline;
+} fgjobL;
+
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
+fgjobL *fgjob = NULL;
 
 /************Function Prototypes*****************************************/
 /* run command */
@@ -97,10 +105,17 @@ static bool IsBuiltIn(char*);
 static void ChangeDirectory(char*);
 
 /* Background Jobs: */
-static void AddBgJob(pid_t, char*);
+static int AddBgJob(pid_t, char*, int);
 static bgjobL* QueryBgJob(pid_t);
 static void RemoveBgJob(pid_t);
 static void FreeBgJob(bgjobL*);
+static void ResumeBgJob(pid_t);
+
+/* Foreground Jobs: */
+static void UpdateFgJob(pid_t, char*);
+
+/* Show Jobs: */
+static void ShowJobList();
 
 /**************Implementation***********************************************/
 int total_task;
@@ -265,11 +280,15 @@ static void Exec(commandT* cmd, bool forceFork)
 
   if (childPid > 0) {
     if (cmd->bg == 0) {
-      waitpid(childPid, &status, 0);
+      UpdateFgJob(childPid, cmd->cmdline);
+      waitpid(childPid, &status, WUNTRACED);
     }
-    AddBgJob(childPid, cmd->cmdline);
+    else {
+      AddBgJob(childPid, cmd->cmdline, 1);
+    }
   }
   else if (childPid == 0) {
+    setpgid(0, 0);
     execv(cmd->name, cmd->argv);
     PrintPError("External command error!");
     exit(1);
@@ -300,10 +319,13 @@ static void RunBuiltInCmd(commandT* cmd)
     // FIXME fg
   }
   if (strcmp("bg", cmd->argv[0]) == 0) {
-    // FIXME bg
+    if (cmd->argv[1])
+      ResumeBgJob(atoi(cmd->argv[1]));
+    else
+      perror("bg");
   }
   if (strcmp("jobs", cmd->argv[0]) == 0) {
-    // FIXME jobs
+    ShowJobList();
   }
   if (strcmp("alias", cmd->argv[0]) == 0) {
     // FIXME alias
@@ -322,10 +344,37 @@ void CheckJobs()
   while((childPid = waitpid(-1, &status, WNOHANG)) > 0) {
     bgjob = QueryBgJob(childPid);
     
-    printf("[%d]   Done                    %s\n", bgjob->order, bgjob->cmdline);
+    printf("[%d]   Done                    %s\n", bgjob->jobid, bgjob->cmdline);
     fflush(stdout);
 
     RemoveBgJob(childPid);
+  }
+}
+
+void ShowJobList()
+{
+  char status[7];
+  char bgMark;
+  bgjobL* current = bgjobs;
+
+  while (current) {
+    switch (current->status) {
+      case 0:
+        strcpy(status, "Done   ");
+        bgMark = ' ';
+        break;
+      case 1:
+        strcpy(status, "Running");
+        bgMark = '&';
+        break;
+      case 2:
+        strcpy(status, "Stopped");
+        bgMark = ' ';
+    }
+    printf("[%d]   %s                 %s%c\n", current->jobid, status, current->cmdline, bgMark);
+    fflush(stdout);
+
+    current = current->next;
   }
 }
 
@@ -342,28 +391,30 @@ void ChangeDirectory(char* path)
   free(errMsg);
 }
 
-void AddBgJob(pid_t pid, char* cmdline) {
+int AddBgJob(pid_t pid, char* cmdline, int status) {
   bgjobL* newJob;
   bgjobL* current = bgjobs;
 
   newJob = (bgjobL*)malloc(sizeof(bgjobL));
   newJob->pid = pid;
+  newJob->status = status;
   newJob->cmdline = (char*)malloc(sizeof(char*) * MAXLINE);
   newJob->cmdline = strdup(cmdline);
   newJob->next = NULL;
   
   if (current == NULL) {
-    newJob->order = 1;
+    newJob->jobid = 1;
     bgjobs = newJob;
   }
   else {
     while (current->next) {
       current = current->next;
     }
-    newJob->order = current->order + 1;
+    newJob->jobid = current->jobid + 1;
     current->next = newJob;
   }
   
+  return newJob->jobid;
 }
 
 bgjobL* QueryBgJob(pid_t pid) {
@@ -396,6 +447,51 @@ void RemoveBgJob(pid_t pid) {
 void FreeBgJob(bgjobL* bgJob) {
   if(bgJob->cmdline != NULL) free(bgJob->cmdline);
   free(bgJob);
+}
+
+void ResumeBgJob(int jobid) {
+  bgjobL* current = bgjobs;
+
+  while (current->jobid != jobid) {
+    current = current->next;
+  }
+
+  if (current->jobid == jobid) {
+    kill(-current->pid, SIGCONT);
+  }
+  else {
+    PrintPError("bg: The job does not exist.");
+  }
+}
+
+void UpdateFgJob(pid_t pid, char* cmdline) {
+  if (fgjob == NULL) {
+    fgjob = (fgjobL*)malloc(sizeof(fgjobL));
+    fgjob->cmdline = (char*)malloc(sizeof(char*) * MAXLINE);
+  }
+  fgjob->pid = pid;
+  fgjob->cmdline = strdup(cmdline);
+}
+
+void StopFgProc() {
+  printf("\n");
+  if (fgjob) {
+    kill(-fgjob->pid, SIGINT);
+  }
+  fflush(stdout);
+}
+
+void SuspendFgProc() {
+  int jobid;
+  
+  printf("\n");
+  if (fgjob) {
+    kill(-fgjob->pid, SIGTSTP);
+    jobid = AddBgJob(fgjob->pid, fgjob->cmdline, 2);
+    printf("[%d]   Stopped                 %s\n", jobid, fgjob->cmdline);
+  }
+  //FIXME: Free fgjob
+  fflush(stdout);
 }
 
 commandT* CreateCmdT(int n)
