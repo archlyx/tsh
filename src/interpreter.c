@@ -45,29 +45,36 @@ typedef struct string_l {
 /*Parse a single word from the param. Get rid of '"' or '''*/
 char* single_param(char *st)
 {
-  int quot1 = 0,quot2 = 0, start = 0;
+  int quot1 = 0, quot2 = 0, start = 0, tilde = 0;
   char *t = st;
   static int idx;
 
   idx = 0;
   while(1){
     if(start == 1){
-      if(st[idx] == '\0') return t;
-      if(st[idx] == '<' || st[idx] == '>') {st[idx] = '\0'; return t;}
-      if(st[idx] == ' ' && quot1 == 0 && quot2 == 0) {st[idx] = '\0';return t;}
-      if(st[idx] == '\'' && quot1 == 1) {st[idx] = '\0';return t;}
+      if(st[idx] == '\0') break;
+      if(st[idx] == '<' || st[idx] == '>') {st[idx] = '\0'; break;}
+      if(st[idx] == ' ' && quot1 == 0 && quot2 == 0) {st[idx] = '\0';break;}
+      if(st[idx] == '\'' && quot1 == 1) {st[idx] = '\0';break;}
       if(st[idx] == '\'' && quot1 == 0) {quot1 = 1;}
       if(st[idx] == '"' && quot2 == 0) {quot2 = 1;}
-      if(st[idx] == '"' && quot2 == 1) {st[idx] = '\0';return t;}
+      if(st[idx] == '"' && quot2 == 1) {st[idx] = '\0';break;}
     }
     else{
       if(st[idx] == ' ' || st[idx] =='\0');
       else if(st[idx] == '"') {quot2 = 1; start = 1; t = &(st[idx+1]);}
       else if(st[idx] == '\'') {quot1 = 1; start = 1; t = &(st[idx+1]);}
+      else if(st[idx] == '~') {start = 1; tilde = 1; t = &(st[idx+1]);}
       else {start = 1; t = &(st[idx]);}
     }
     idx++;
   }
+
+  if (tilde == 1) {
+    t = strcat(strdup(getenv("HOME")), t);
+  }
+
+  return t;
 }
 
 /*Parse the single command and call single_param to parse each word in the command*/

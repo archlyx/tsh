@@ -1,0 +1,10 @@
+BIN=tsh
+ORIG=tsh-orig
+BASH=/bin/bash
+SRC=src
+DIFF="diff -b -B -q -s"
+VERBOSE=
+
+DRIVER="./run_testcase.sh"
+BASIC_TESTS="test13"
+EXTRA_TESTS=""

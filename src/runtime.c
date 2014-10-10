@@ -370,7 +370,10 @@ void ShowJobList()
         break;
       case 1:
         sprintf(status, "Running");
-        printf("[%d]   %s                 %s&\n", current->jobid, status, current->cmdline);
+        if (current->cmdline[strlen(current->cmdline) - 1] == ' ')
+          printf("[%d]   %s                 %s&\n", current->jobid, status, current->cmdline);
+        else 
+          printf("[%d]   %s                 %s &\n", current->jobid, status, current->cmdline);
         break;
       case 2:
         sprintf(status, "Stopped");
@@ -462,7 +465,7 @@ void ResumeBgJob(int jobid) {
 
   if (current->jobid == jobid) {
     current->status = 1;
-    kill(current->pid, SIGCONT);
+    kill(-current->pid, SIGCONT);
   }
   else {
     PrintPError("bg: The job does not exist.");
@@ -479,9 +482,11 @@ void UpdateFgJob(pid_t pid, char* cmdline) {
 }
 
 void FreeFgJob() {
-  if (fgjob->cmdline != NULL) free(fgjob->cmdline);
-  free(fgjob);
-  fgjob = NULL;
+  if (fgjob) {
+    if (fgjob->cmdline != NULL) free(fgjob->cmdline);
+    free(fgjob);
+    fgjob = NULL;
+  }
 }
 
 void StopFgProc() {
@@ -514,13 +519,12 @@ void MoveToFg(int jobid) {
   if (current->jobid == jobid) {	
     pid = current->pid;
 
-    printf("Status: %d", current->status);
     if (current->status == 2)
       kill(-pid, SIGCONT);
 
     UpdateFgJob(pid, current->cmdline);
     RemoveBgJob(pid);
-    waitpid(-pid, &status, 0);
+    waitpid(pid, &status, WUNTRACED);
     FreeFgJob();
   }
 }
