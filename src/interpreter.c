@@ -42,6 +42,9 @@ typedef struct string_l {
   struct string_l* next;
 } stringL;
 
+static void TranslateCmd(char*);
+static bool IsUnAlias(char*);
+
 /*Parse a single word from the param. Get rid of '"' or '''*/
 char* single_param(char *st)
 {
@@ -150,6 +153,9 @@ void Interpret(char* cmdLine)
   int bg = 0, i,k,j = 0, quotation1 = 0, quotation2 = 0;
   commandT **command;
 
+  if (cmdLine[0] != '\0' && !IsUnAlias(cmdLine))
+    TranslateCmd(cmdLine);
+
   if(cmdLine[0] == '\0') return;
 
   for(i = 0; i < strlen(cmdLine); i++){
@@ -206,8 +212,46 @@ void Interpret(char* cmdLine)
       j = -1;
     }
   }
-  parser_single(&(cmdLine[i-j]), j, &(command[task]),bg);
+  parser_single(&(cmdLine[i-j]), j, &(command[task]), bg);
 
   RunCmd(command, task+1);
   free(command);
+}
+
+void TranslateCmd(char* cmdLine) {
+  char* newCmdLine = NULL;
+  char* newArgv = NULL;
+  char* p = strtok(cmdLine, " ");
+
+  while (p) {
+    if (p[0] != '\'' && p[0] != '"')
+      newArgv = QueryAliasList(p);
+    else
+      newArgv = p;
+    
+    newArgv = newArgv ? newArgv : p;
+
+    if (newCmdLine) {
+      newCmdLine = (char*)realloc(newCmdLine, sizeof(char*) * (strlen(newCmdLine) + strlen(newArgv) + 2));
+      strcat(newCmdLine, " ");
+      strcat(newCmdLine, newArgv);
+    }
+    else
+      newCmdLine = strdup(newArgv);
+
+    p = strtok(NULL, " ");
+  }
+
+  strcpy(cmdLine, newCmdLine);
+}
+
+bool IsUnAlias(char* cmd) {
+  char unalias[9];
+  strncpy(unalias, cmd, 8);
+  unalias[8] = '\0';
+
+  if (strcmp(unalias, "unalias ") == 0)
+    return TRUE;
+
+  return FALSE;
 }

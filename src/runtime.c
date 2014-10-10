@@ -80,9 +80,16 @@ typedef struct fgjob_l {
   char* cmdline;
 } fgjobL;
 
+typedef struct alias_l {
+  char* lhs;
+  char* rhs;
+  struct alias_l* next;
+} aliasL;
+
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
 fgjobL *fgjob = NULL;
+aliasL *aliasList = NULL;
 
 /************Function Prototypes*****************************************/
 /* run command */
@@ -105,11 +112,11 @@ static bool IsBuiltIn(char*);
 static void ChangeDirectory(char*);
 
 /* Background Jobs: */
-static int AddBgJob(pid_t, char*, int);
+static int     AddBgJob(pid_t, char*, int);
 static bgjobL* QueryBgJob(pid_t);
-static void RemoveBgJob(pid_t);
-static void FreeBgJob(bgjobL*);
-static void ResumeBgJob(pid_t);
+static void    RemoveBgJob(pid_t);
+static void    FreeBgJob(bgjobL*);
+static void    ResumeBgJob(pid_t);
 
 /* Foreground Jobs: */
 static void UpdateFgJob(pid_t, char*);
@@ -118,6 +125,13 @@ static void MoveToFg(int);
 
 /* Show Jobs: */
 static void ShowJobList();
+
+/* Alias */
+static void    AddAlias(char*);
+static aliasL* CreateAlias(char*, char*, aliasL*);
+static void    ShowAliasList();
+static void    RemoveAlias(char*);
+static void    FreeAlias(aliasL*);
 
 /**************Implementation***********************************************/
 int total_task;
@@ -152,6 +166,7 @@ void RunCmdFork(commandT* cmd, bool fork)
 {
   if (cmd->argc<=0)
     return;
+
   if (IsBuiltIn(cmd->argv[0]))
   {
     RunBuiltInCmd(cmd);
@@ -334,10 +349,17 @@ static void RunBuiltInCmd(commandT* cmd)
     ShowJobList();
   }
   if (strcmp("alias", cmd->argv[0]) == 0) {
-    // FIXME alias
+    if (cmd->argv[1])
+      AddAlias(cmd->argv[1]);
+    else
+      ShowAliasList();
   }
   if (strcmp("unalias", cmd->argv[0]) == 0) {
-    // FIXME unalias
+    if (cmd->argv[1])
+      RemoveAlias(cmd->argv[1]);
+    else
+      perror("unalias");
+
   }
 }
 
@@ -527,6 +549,108 @@ void MoveToFg(int jobid) {
     waitpid(pid, &status, WUNTRACED);
     FreeFgJob();
   }
+}
+
+void AddAlias(char* aliasLine) {
+  aliasL* previous = NULL;
+  aliasL* current = aliasList;
+  
+  char* argv = strtok(aliasLine, "=");
+  char* left = strdup(argv);
+
+  argv = strtok(NULL, "=");
+  if (argv) {
+    if (current == NULL) {
+      aliasList = CreateAlias(left, strdup(argv) + 1, NULL);
+    }
+    else {
+      while (current) {
+        if (strcmp(left, current->lhs) < 0) {
+          if (previous)
+            previous->next = CreateAlias(left, strdup(argv) + 1, current);
+          else
+            aliasList = CreateAlias(left, strdup(argv) + 1, current);
+          break;
+        }
+        else if (current->next == NULL && strcmp(left, current->lhs) > 0) {
+          current->next = CreateAlias(left, strdup(argv) + 1, NULL);
+          break;
+        }
+        else if (strcmp(left, current->lhs) == 0) {
+          current->rhs = strdup(argv) + 1;
+          break;
+        }
+        previous = current;
+        current = current->next;
+      }
+    }
+  }
+  else
+    PrintPError("alias: Cannot alias the command");
+}
+
+aliasL* CreateAlias(char* lhs, char* rhs, aliasL* next) {
+  aliasL* newAlias = malloc(sizeof(aliasL));
+  newAlias->lhs = lhs;
+  newAlias->rhs = rhs;
+  newAlias->next = next;
+  return newAlias;
+}
+
+void ShowAliasList() {
+  aliasL* current = aliasList;
+
+  while (current) {
+    printf("alias %s=\'%s\'\n", current->lhs, current->rhs);
+    fflush(stdout);
+
+    current = current->next;
+  }
+}
+
+void RemoveAlias(char* lhs) {
+  aliasL* previous = NULL;
+  aliasL* current = aliasList;
+
+  if (current) {
+    while(current->next && (strcmp(lhs, current->lhs) != 0)) {
+      previous = current;
+      current = current->next;
+    }
+
+    if (strcmp(lhs, current->lhs) == 0) {
+      if (previous) {
+        previous->next = current->next;
+      }
+      else {
+        aliasList = current->next;
+      }
+      FreeAlias(current);
+    }
+    else {
+      PrintPError("unalias: Cannot find the alias");
+    }
+  }
+  else {
+    PrintPError("unalias: Cannot find the alias");
+  }
+}
+
+char* QueryAliasList(char* lhs) {
+  aliasL* current = aliasList;
+
+  while (current) {
+    if (strcmp(lhs, current->lhs) == 0) {
+      return current->rhs;
+    }
+    current = current->next;
+  }
+
+  return NULL;
+}
+
+void FreeAlias(aliasL* alias) {
+  free(alias);
 }
 
 commandT* CreateCmdT(int n)

@@ -6,5 +6,5 @@ DIFF="diff -b -B -q -s"
 VERBOSE=
 
 DRIVER="./run_testcase.sh"
-BASIC_TESTS="test13"
-EXTRA_TESTS=""
+BASIC_TESTS=""
+EXTRA_TESTS="test29 test30"
