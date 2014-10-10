@@ -12,7 +12,7 @@ Item                                     Discount
    (No) self-documented & commented code  10
  2.It doesn't compile			 100
  3.Compilation warning messages		   2 per
- 4.Test cases				   3.5 per (25 cases)
+ 4.Test cases				   4 per (20 cases)
  5.Memory leaks				   5 per
  6.Memory leak warnings 		   1 per
 -----------------------------------------------------------
@@ -51,13 +51,12 @@ to evaluate and grade your project.  All test cases end with the
 
 For extra credit (total 20 points):
 
-There are 5 extra credit test cases, worth 4 points each.
+There are 4 extra credit test cases, worth 5 points each.
 
 26) set alias
 27) set alias, unset alias
-28) unset failed alias
-29) list aliases
-30) multiple aliases same line
+28) list aliases
+29) multiple aliases same line
 
 Using the sdriver.pl driver script:
 

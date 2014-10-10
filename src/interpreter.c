@@ -125,7 +125,7 @@ void parser_single(char *c, int sz, commandT** cd, int bg)
   if(c[cmd_length - 1] != ' ') task_argc++;
   //printf("%d\n",task_argc);
   (*cd) = CreateCmdT(task_argc);
-  (*cd) -> bg = bg;
+  (*cd)->bg = bg;
   (*cd)->cmdline = strdup(c);
   tmp = c;
   for(i = 0; i < task_argc; i++){

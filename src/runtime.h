@@ -100,7 +100,8 @@ EXTERN void RunCmdBg(commandT*);
  *    Input: two command structure
  *    Output: void
  ***********************************************************************/
-EXTERN void RunCmdPipe(commandT*, commandT*);
+//EXTERN void RunCmdPipe(commandT*, commandT*);
+EXTERN void RunCmdPipe(commandT**, int);
 
 /***********************************************************************
  *  Title: Runs a command with output & input redirection

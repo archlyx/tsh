@@ -156,7 +156,8 @@ void RunCmd(commandT** cmd, int n)
     }
   }
   else{
-    RunCmdPipe(cmd[0], cmd[1]);
+    /*RunCmdPipe(cmd[0], cmd[1]);*/
+    RunCmdPipe(cmd, n);
     for(i = 0; i < n; i++)
       ReleaseCmdT(&cmd[i]);
   }
@@ -182,8 +183,61 @@ void RunCmdBg(commandT* cmd)
   // TODO
 }
 
-void RunCmdPipe(commandT* cmd1, commandT* cmd2)
+void RunCmdPipe(commandT** cmd, int n)
 {
+    int i = 0;
+
+    int pipefd[n - 1][2];
+
+    for (i = 0; i < n - 1; i++) {
+      if (pipe(pipefd[i]) < 0) {
+        perror("Couldn't Pipe");
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    int pid;
+    int status;
+
+    for (i = 0; i < n; ++i) {
+        pid = fork();
+        if (pid == 0) {
+          if (i < n - 1){
+            if (dup2(pipefd[i][1], 1) < 0){
+              perror("dup2");
+              exit(EXIT_FAILURE);
+            }
+          }
+
+          if (i > 0 ){
+            if (dup2(pipefd[i - 1][0], 0) < 0){
+              perror("dup2");
+              exit(EXIT_FAILURE);
+            }
+          }
+
+          int q;
+          for (q = 0; q < n - 1; q++){
+            close(pipefd[q][0]);
+            close(pipefd[q][1]);
+          }
+
+          RunCmdFork(cmd[i], FALSE);
+        }
+        else if(pid < 0){
+          perror("error");
+          exit(EXIT_FAILURE);
+        }
+    }
+
+    for (i = 0; i < n - 1; i++){
+      close(pipefd[i][0]);
+      close(pipefd[i][1]);
+    }
+
+    for (i = 0; i < n; i++){
+      wait(&status);
+    }
 }
 
 void RunCmdRedirInOut(commandT* cmd, char* inFile, char* outFile)
@@ -293,7 +347,7 @@ static bool ResolveExternalCmd(commandT* cmd)
 static void Exec(commandT* cmd, bool forceFork)
 {
   int status;
-  pid_t childPid = fork();
+  pid_t childPid = forceFork ? fork() : 0;
 
   if (childPid > 0) {
     if (cmd->bg == 0) {
@@ -306,7 +360,9 @@ static void Exec(commandT* cmd, bool forceFork)
     }
   }
   else if (childPid == 0) {
-    setpgid(0, 0);
+    if (forceFork)
+      setpgid(0, 0);
+
     execv(cmd->name, cmd->argv);
     PrintPError("External command error!");
     exit(1);
