@@ -2,8 +2,6 @@
 
 [NAME](#NAME)
 
-[SYNOPSIS](#SYNOPSIS)
-
 [DESCRIPTION](#DESCRIPTION)
 
 [DESIGN](#DESIGN)
@@ -26,11 +24,6 @@
 tsh &minus; A
 tiny shell similar to bash
 
-## SYNOPSIS
-<a name="SYNOPSIS"></a>
-
-**tsh**
-
 ## DESCRIPTION
 <a name="DESCRIPTION"></a>
 
@@ -43,7 +36,7 @@ commands.
 ## DESIGN
 <a name="DESIGN"></a>
 
-Job Control
+### Job Control
 
 Based on the linklist provided
 in the skeleton to manage background processes, _jobid_
@@ -60,8 +53,7 @@ directly sent to all the foreground processes using
 _kill(2)_ function, according to information stored in
 the foreground job struct.
 
-Extra Credit: Alias &amp;
-Unalias
+### Extra Credit: Alias &amp; Unalias
 
 A new linklist is built to
 store the information of the aliases. When the alias with
@@ -77,7 +69,7 @@ is made in the Interpret() function, since the argument for
 unalias should no be translated using unalias but directly
 removed from the alias linklist.
 
-Extra Credit: Pipe
+### Extra Credit: Pipe
 
 The pipe function is
 implemented using _dup2()_ function to change the stdin
@@ -93,8 +85,7 @@ the RunCmdFork is used to prevent the RunCmdFork from
 forking new processes since this has already been done in
 the RunCmdPipe.
 
-Extra Credit: IO
-Redirection
+### Extra Credit: IO Redirection
 
 Similar to pipe function, the
 IO redirection is implemented using function. The stdout and
@@ -104,61 +95,58 @@ according to the **is_redirect_in** and
 
 ## COMMANDS
 <a name="COMMANDS"></a>
-
+``` bash
 cd path
+```
 
 Change current directory to the
 given path. If the path is empty, it will change to
 **$HOME** by default.
 
+``` bash
 fg jobID
+```
 
 Move the job from background to
 foreground no matter it is stopped or not.
 
+``` bash
 bg jobID
+```
 
 Resume the stopped job in the
 background and make it run in the background.
 
-<table width="100%" border="0" rules="none" frame="void"
-       cellspacing="0" cellpadding="0">
-<tr valign="top" align="left">
-<td width="11%"></td>
-<td width="6%">
-
+``` bash
 jobs
-</td>
-<td width="5%"></td>
-<td width="76%">
-
+```
 Show the list of background jobs and their status.
-</td>
-<td width="2%">
-</td></tr>
-</table>
 
-alias
-string=&rsquo;commands&rsquo;
+``` bash
+alias string='commands';
+```
 
 Alias the commands with the
 given string. If no argument is given, it will print all the
 existing aliases.
 
+``` bash
 unalias string
+```
 
-Unalias the alias made
-before.
+Unalias the alias made before.
 
-[Command] &lt; filein &gt;
-fileout
+``` bash
+[Command] < filein > fileout
+```
 
 The standard output and input
 of the command can be redirected to/from the specified
 files.
 
-[Command 1] | [Command 2] |
-...
+``` bash
+[Command 1] | [Command 2] | ...
+```
 
 Multiple pipe commands is
 supported.
@@ -169,31 +157,15 @@ supported.
 The following
 diagnostics may be issued on stderr:
 
-command not
-found
-
-The command is not found in the
-**$PATH**
-
-External command error
-
-Exception happens during the
-execution of the external commands.
-
-Fork failed
-
-Cannot create a new process
-
-Unalias error
-
-The number of arguments for
-unalias is wrong.
+* **Command not found** The command is not found in the **$PATH**
+* **External command error** Exception happens during the execution of the external commands.
+* **Fork failed** Cannot create a new process
+* **Unalias error** The number of arguments for unalias is wrong.
 
 ## BUGS
 <a name="BUGS"></a>
 
-The pipe
-commands is not included in the job control. It also does
+The pipe commands is not included in the job control. It also does
 not support IO redirection. The builtIn command is supported
 in pipe but does not work properly. Some of the errors are
 not handled and may lead to fatal errors.
@@ -202,12 +174,10 @@ not handled and may lead to fatal errors.
 <a name="AUTHOR"></a>
 
 Shuangping Liu
-(shuangping-liu@u.northwestern.edu)
 
 ## SEE ALSO
 <a name="SEE ALSO"></a>
 
-**bash**(1)
-**waitpid**(2) **kill**(2)
+**bash**(1) **waitpid**(2) **kill**(2)
 
 * * *
