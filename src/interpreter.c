@@ -42,7 +42,10 @@ typedef struct string_l {
   struct string_l* next;
 } stringL;
 
+/* Translate the cmdline to a new one according to alias*/
 static void TranslateCmd(char*);
+
+/* Test if the input command is unalias*/
 static bool IsUnAlias(char*);
 
 /*Parse a single word from the param. Get rid of '"' or '''*/
@@ -73,6 +76,12 @@ char* single_param(char *st)
     idx++;
   }
 
+  /* 
+   * Translate the ~ tilde to the value of $HOME 
+   * strdup() must be used right after the getenv()
+   * since the return pointer is always pointing
+   * to same place in memory
+   * */
   if (tilde == 1) {
     t = strcat(strdup(getenv("HOME")), t);
   }
@@ -153,6 +162,9 @@ void Interpret(char* cmdLine)
   int bg = 0, i,k,j = 0, quotation1 = 0, quotation2 = 0;
   commandT **command;
 
+  /*
+   * Translate the arguments in the cmdline to the aliased string
+   * */
   if (cmdLine[0] != '\0' && !IsUnAlias(cmdLine))
     TranslateCmd(cmdLine);
 
@@ -221,9 +233,12 @@ void Interpret(char* cmdLine)
 void TranslateCmd(char* cmdLine) {
   char* newCmdLine = NULL;
   char* newArgv = NULL;
+
+  /* The cmdLine is splitted by space using strtok() */
   char* p = strtok(cmdLine, " ");
 
   while (p) {
+    /* Query the alias linklist to see if the arg is aliased */
     if (p[0] != '\'' && p[0] != '"')
       newArgv = QueryAliasList(p);
     else
@@ -231,6 +246,7 @@ void TranslateCmd(char* cmdLine) {
     
     newArgv = newArgv ? newArgv : p;
 
+    /* Create a new cmdLine from the concatenation of the tranlated arguments */
     if (newCmdLine) {
       newCmdLine = (char*)realloc(newCmdLine, sizeof(char*) * (strlen(newCmdLine) + strlen(newArgv) + 2));
       strcat(newCmdLine, " ");
@@ -250,6 +266,7 @@ bool IsUnAlias(char* cmd) {
   strncpy(unalias, cmd, 8);
   unalias[8] = '\0';
 
+  /* Chekc if the first few letters are unalias */
   if (strcmp(unalias, "unalias ") == 0)
     return TRUE;
 

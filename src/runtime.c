@@ -64,6 +64,7 @@
 
 #define NBUILTINCOMMANDS (sizeof BuiltInCommands / sizeof(char*))
 
+/* the available built in commands */
 char* BuiltInCommands[] = {"cd", "fg", "bg", "jobs", "alias", "unalias"};
 
 typedef struct bgjob_l {
@@ -87,7 +88,9 @@ typedef struct alias_l {
 
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
+/* the pid of the foreground process */
 fgjobL *fgjob = NULL;
+/* the aliases stored */
 aliasL *aliasList = NULL;
 
 /************Function Prototypes*****************************************/
@@ -105,31 +108,45 @@ static void RunBuiltInCmd(commandT*);
 static bool IsBuiltIn(char*);
 
 /************External Declaration*****************************************/
-/* cd:
- *   change directory of current process
-**/
+/* Change directory of current process */
 static void ChangeDirectory(char*);
 
 /* Background Jobs: */
+
+/* add bg job to the link list */
 static int     AddBgJob(pid_t, char*, int);
+/* query bg job with its pid */
 static bgjobL* QueryBgJob(pid_t);
+/* remove bg job to the link list */
 static void    RemoveBgJob(pid_t);
+/* free bg job */
 static void    FreeBgJob(bgjobL*);
+/* resume the stopped bg job to running */
 static void    ResumeBgJob(pid_t);
 
 /* Foreground Jobs: */
+
+/* add/update fg job */
 static void UpdateFgJob(pid_t, char*);
+/* free the current fg job*/
 static void FreeFgJob();
+/* Move a bg job to foreground */
 static void MoveToFg(int);
 
 /* Show Jobs: */
 static void ShowJobList();
 
 /* Alias */
+
+/* add/update Alias in the link list */
 static void    AddAlias(char*);
+/* assign memory for new alias in the link list */
 static aliasL* CreateAlias(char*, char*, aliasL*);
+/* print existing aliases in the link list */
 static void    ShowAliasList();
+/* remove exisitng alias from the link list */
 static void    RemoveAlias(char*);
+/* free alias from the link list */
 static void    FreeAlias(aliasL*);
 
 /**************Implementation***********************************************/
@@ -139,6 +156,7 @@ void RunCmd(commandT** cmd, int n)
   int i;
   total_task = n;
   if (n == 1) {
+    /* Check if IO redirection is involved */
     if (cmd[0]->is_redirect_in) {
       if (cmd[0]->is_redirect_out) {
         RunCmdRedirInOut(cmd[0], cmd[0]->redirect_in, cmd[0]->redirect_out);
@@ -155,7 +173,7 @@ void RunCmd(commandT** cmd, int n)
     }
   }
   else{
-    /*RunCmdPipe(cmd[0], cmd[1]);*/
+    /* Execute the pipe commands */
     RunCmdPipe(cmd, n);
     for(i = 0; i < n; i++)
       ReleaseCmdT(&cmd[i]);
@@ -185,9 +203,11 @@ void RunCmdBg(commandT* cmd)
 void RunCmdPipe(commandT** cmd, int n)
 {
     int i = 0;
-
+    /* A integer array to store the identifier of pipes
+     * n commands corresponds to n - 1 pipes*/
     int pipefd[n - 1][2];
 
+    /* Initialize pipe identifiers */
     for (i = 0; i < n - 1; i++) {
       if (pipe(pipefd[i]) < 0) {
         perror("Couldn't Pipe");
@@ -198,9 +218,11 @@ void RunCmdPipe(commandT** cmd, int n)
     int pid;
     int status;
 
-    for (i = 0; i < n; ++i) {
+    for (i = 0; i < n; i++) {
         pid = fork();
         if (pid == 0) {
+          /* If not the last command
+           * Redirect the stdout to pipe out*/
           if (i < n - 1){
             if (dup2(pipefd[i][1], 1) < 0){
               perror("dup2");
@@ -208,6 +230,8 @@ void RunCmdPipe(commandT** cmd, int n)
             }
           }
 
+          /* If not the first command
+           * Redirect the stdin to pipe in*/
           if (i > 0 ){
             if (dup2(pipefd[i - 1][0], 0) < 0){
               perror("dup2");
@@ -215,12 +239,14 @@ void RunCmdPipe(commandT** cmd, int n)
             }
           }
 
-          int q;
-          for (q = 0; q < n - 1; q++){
-            close(pipefd[q][0]);
-            close(pipefd[q][1]);
+          /* Close the pipe identifers */
+          int k;
+          for (k = 0; k < n - 1; k++){
+            close(pipefd[k][0]);
+            close(pipefd[k][1]);
           }
 
+          /* Run the command without fork */
           RunCmdFork(cmd[i], FALSE);
         }
         else if(pid < 0){
@@ -234,6 +260,7 @@ void RunCmdPipe(commandT** cmd, int n)
       close(pipefd[i][1]);
     }
 
+    /* Parent wait for the pipes */
     for (i = 0; i < n; i++){
       wait(&status);
     }
@@ -244,14 +271,17 @@ void RunCmdRedirInOut(commandT* cmd, char* inFile, char* outFile)
   int fidOut = open(outFile, O_WRONLY | O_CREAT, 0644);
   int fidIn = open(inFile, O_RDONLY);
 
+  /* Save the stdout/in for later recover */
   int origStdout = dup(1);
   int origStdin = dup(0);
 
+  /* Redirect the IO to files*/
   dup2(fidOut, 1);
   dup2(fidIn, 0);
 
   RunCmdFork(cmd, TRUE);
 
+  /* Recover stdout/in */
   dup2(origStdout, 1);
   dup2(origStdin, 0);
 
@@ -262,11 +292,14 @@ void RunCmdRedirInOut(commandT* cmd, char* inFile, char* outFile)
 void RunCmdRedirOut(commandT* cmd, char* file)
 {
   int fid = open(file, O_WRONLY | O_CREAT, 0644);
+  /* Save the stdout for later recover */
   int origStdout = dup(1);
+  /* Redirect the stdout to file */
   dup2(fid, 1);
 
   RunCmdFork(cmd, TRUE);
 
+  /* Recover stdout */
   dup2(origStdout, 1);
   close(origStdout);
 }
@@ -274,11 +307,14 @@ void RunCmdRedirOut(commandT* cmd, char* file)
 void RunCmdRedirIn(commandT* cmd, char* file)
 {
   int fid = open(file, O_RDONLY);
+  /* Save the stdiin for later recover */
   int origStdin = dup(0);
+  /* Redirect the stdin to file */
   dup2(fid, 0);
 
   RunCmdFork(cmd, TRUE);
 
+  /* Recover stdin */
   dup2(origStdin, 0);
   close(origStdin);
 }
@@ -346,20 +382,34 @@ static bool ResolveExternalCmd(commandT* cmd)
 static void Exec(commandT* cmd, bool forceFork)
 {
   int status;
+  /* If not forceFork, the childPid is always 0,
+   * the command will be directly executed 
+   * without fork.
+   * */
   pid_t childPid = forceFork ? fork() : 0;
 
   if (childPid > 0) {
+    /* Parent process:*/
     if (cmd->bg == 0) {
+      /* Foreground job */
       UpdateFgJob(childPid, cmd->cmdline);
+      /* Wait for child. The WUNTRACED
+       * option can prevent the shell from
+       * hanging when TSTP signal received
+       * */
       waitpid(childPid, &status, WUNTRACED);
       FreeFgJob();
     }
     else {
+      /* Background job */
       AddBgJob(childPid, cmd->cmdline, 1);
     }
   }
   else if (childPid == 0) {
+    /* Child process:*/
     if (forceFork)
+      /* Put the process in a unique foreground 
+       * process group*/
       setpgid(0, 0);
 
     execv(cmd->name, cmd->argv);
@@ -407,6 +457,7 @@ static void RunBuiltInCmd(commandT* cmd)
     if (cmd->argv[1])
       AddAlias(cmd->argv[1]);
     else
+      /* If no arguement, show the alias list*/
       ShowAliasList();
   }
   if (strcmp("unalias", cmd->argv[0]) == 0) {
@@ -424,6 +475,10 @@ void CheckJobs()
   bgjobL* bgjob;
   int status;
 
+  /* Consistently check if the status of the child 
+   * processes are changed. If changed, display their
+   * information
+   * */
   while((childPid = waitpid(-1, &status, WNOHANG)) > 0) {
     bgjob = QueryBgJob(childPid);
     
@@ -464,6 +519,7 @@ void ShowJobList()
 
 void ChangeDirectory(char* path)
 {
+  /* If input is NULL, change dir to HOME */
   char* newPath = (path != NULL) ? path : getenv("HOME");
   int err = chdir(newPath);
 
@@ -486,6 +542,7 @@ int AddBgJob(pid_t pid, char* cmdline, int status) {
   newJob->cmdline = strdup(cmdline);
   newJob->next = NULL;
   
+  /* Go through the link list*/
   if (current == NULL) {
     newJob->jobid = 1;
     bgjobs = newJob;
@@ -540,6 +597,9 @@ void ResumeBgJob(int jobid) {
     current = current->next;
   }
 
+  /* If the job of give jobid is found,
+   * send SIGCONT to all the processes 
+   * in this process group */
   if (current->jobid == jobid) {
     current->status = 1;
     kill(-current->pid, SIGCONT);
@@ -567,6 +627,8 @@ void FreeFgJob() {
 }
 
 void StopFgProc() {
+  /* Send SIGINT to all the processes 
+   * in this process group */
   if (fgjob) {
     kill(-fgjob->pid, SIGINT);
   }
@@ -576,6 +638,9 @@ void SuspendFgProc() {
   int jobid;
   
   if (fgjob) {
+    /* Send SIGTSTP to all the processes 
+     * in this process group, and update
+     * foreground job and backgroundjobs */
     kill(-fgjob->pid, SIGTSTP);
     jobid = AddBgJob(fgjob->pid, fgjob->cmdline, 2);
     printf("\n[%d]   Stopped                 %s\n", jobid, fgjob->cmdline);
@@ -596,6 +661,9 @@ void MoveToFg(int jobid) {
   if (current->jobid == jobid) {	
     pid = current->pid;
 
+    /* If the job is stopped,
+     * Send SIGCONT to all the processes 
+     * in this process group */
     if (current->status == 2)
       kill(-pid, SIGCONT);
 
@@ -613,6 +681,7 @@ void AddAlias(char* aliasLine) {
   char* argv = strtok(aliasLine, "=");
   char* left = strdup(argv);
 
+  /* Split the argument using '=' */
   argv = strtok(NULL, "=");
   if (argv) {
     if (current == NULL) {
@@ -627,10 +696,13 @@ void AddAlias(char* aliasLine) {
             aliasList = CreateAlias(left, strdup(argv) + 1, current);
           break;
         }
+        /* Compare the order of lhs to ensure the link lis is 
+         * ordered alphabetically */
         else if (current->next == NULL && strcmp(left, current->lhs) > 0) {
           current->next = CreateAlias(left, strdup(argv) + 1, NULL);
           break;
         }
+        /* If the lhs exist, overwrite it */
         else if (strcmp(left, current->lhs) == 0) {
           current->rhs = strdup(argv) + 1;
           break;

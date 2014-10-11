@@ -31,7 +31,7 @@ TAR = tar cvf
 COMPRESS = gzip
 CFLAGS = -g -Wall -D HAVE_CONFIG_H
 
-DELIVERY = Makefile *.h *.c test_type
+DELIVERY = Makefile *.h *.c tsh.1
 PROGS = tsh
 SRCS = interpreter.c io.c runtime.c tsh.c 
 OBJS = ${SRCS:.c=.o}

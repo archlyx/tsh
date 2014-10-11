@@ -94,13 +94,12 @@ EXTERN void RunCmd(commandT**,int);
 EXTERN void RunCmdBg(commandT*);
 
 /***********************************************************************
- *  Title: Runs two command with a pipe
+ *  Title: Runs several commands with a pipe
  * ---------------------------------------------------------------------
- *    Purpose: Runs two command connected with a pipe.
- *    Input: two command structure
+ *    Purpose: Runs several commands connected with a pipe.
+ *    Input: command structure array, number of commands
  *    Output: void
  ***********************************************************************/
-//EXTERN void RunCmdPipe(commandT*, commandT*);
 EXTERN void RunCmdPipe(commandT**, int);
 
 /***********************************************************************
@@ -186,6 +185,13 @@ EXTERN char* getLogin();
  ***********************************************************************/
 EXTERN void CheckJobs();
 
+/***********************************************************************
+ *  Title: Query the aliases 
+ * ---------------------------------------------------------------------
+ *    Purpose: Checks if the argument has alias
+ *    Input: the argument string
+ *    Output: void 
+ ***********************************************************************/
 EXTERN char* QueryAliasList(char*);
 
 /************External Declaration*****************************************/
