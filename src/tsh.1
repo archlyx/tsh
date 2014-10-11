@@ -1,0 +1,135 @@
+.\" tsh.1 man page
+.\" Process this file with
+.\" groff -man -Tascii foo.1
+.\"
+.TH TSH 1 "OCTOBER 2014" Linux "User Manuals"
+.SH NAME
+tsh \- A tiny shell similar to bash 
+.SH SYNOPSIS
+.B tsh
+.SH DESCRIPTION
+.B tsh
+is a tiny shell program written in C. It supports
+.BR "job control",
+.BR "pipe commands",
+.BR redirection
+and
+.BR alias
+as well as other basic linux shell commands.
+.SH DESIGN
+.IP "Job Control"
+Based on the linklist provided in the skeleton to manage
+background processes, 
+.I jobid
+and
+.I status
+are added to label the jobs and its status (0: Done, 1:
+Running, 2: Stopped). Another struct for foreground 
+process is added to record whether there is a foreground
+job running. The main program is consistently check the
+status of the background jobs: if the return value of the
+.I waitpid()
+is larger than zero, then the status of certain child 
+processes are changed, then their newest info are printed.
+Globally the shell can catch the signal SIGINT and SIGTSTP
+sent externally. These signals are directly sent to all the
+foreground processes using
+.I kill(2)
+function, according to information stored in the foreground
+job struct.
+.IP "Extra Credit: Alias & Unalias"
+A new linklist is built to store the information of the
+aliases. When the alias with argument is passed in the 
+program, argument is splitted by the "=" symbol, and the
+string on the two sides are saved as they are. When a command
+is passed to 
+.I Interpret()
+, all of the arguments separated by space are firstly checked
+and replaced if they have alias in the shell. Specifically,
+the shell can successfully process the "~" symbol and replace
+it with 
+.B $HOME
+environmental variable. A special case for unalias command is
+made in the Interpret() function, since the argument for
+unalias should no be translated using unalias but directly
+removed from the alias linklist.
+.IP "Extra Credit: Pipe"
+The pipe function is implemented using
+.I dup2()
+function to change the stdin and stdout to the file identifier
+provided by
+.I pipe()
+function. When multiple pipe commands are feed, they are firstly
+parsed by the interpreters with an array of commandT struct,
+and the execution of these commands are place in a loop. In each
+step within the loop, a new child process is forked to run the
+next command, and the parent process is wait for the completion.
+Since the built-in command can also be a command in the pipes,
+the forceFork parameter given in the RunCmdFork is used to
+prevent the RunCmdFork from forking new processes since this has
+already been done in the RunCmdPipe.
+.IP "Extra Credit: IO Redirection"
+Similar to pipe function, the IO redirection is implemented
+using 
+./ dup2()
+function. The stdout and stdin is directly replaced by the
+given file descriptors according to the
+.BR is_redirect_in
+and
+.BR is_redirect_out
+variables in the cmd struct.
+.SH COMMANDS
+.IP "cd path"
+Change current directory to the given path. If the path
+is empty, it will change to
+.B $HOME
+by default.
+.IP "fg jobID"
+Move the job from background to foreground no matter
+it is stopped or not.
+.IP "bg jobID"
+Resume the stopped job in the background and make
+it run in the background.
+.IP jobs
+Show the list of background jobs and their status.
+.IP "alias string='commands'"
+Alias the commands with the given string. If no argument
+is given, it will print all the existing aliases.
+.IP "unalias string"
+Unalias the alias made before.
+.IP "[Command] < filein > fileout"
+The standard output and input of the command can
+be redirected to/from the specified files.
+.IP "[Command 1] | [Command 2] | ..."
+Multiple pipe commands is supported.
+.SH DIAGNOSTICS
+The following diagnostics may be issued on stderr:
+ 
+command not found 
+.RS
+The command is not found in the
+.B $PATH
+.RE
+External command error
+.RS
+Exception happens during the execution of the
+external commands.
+.RE
+Fork failed
+.RS
+Cannot create a new process
+.RE
+Unalias error
+.RS
+The number of arguments for unalias is wrong.
+.SH BUGS
+The pipe commands is not included in the job control. It
+also does not support IO redirection. The builtIn command
+is supported in pipe but does not work properly. Some of
+the errors are not handled and may lead to fatal errors.
+.SH AUTHOR
+Shuangping Liu (shuangping-liu@u.northwestern.edu)
+.SH "SEE ALSO"
+.BR bash (1)
+.BR waitpid (2)
+.BR kill (2)

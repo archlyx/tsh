@@ -76,7 +76,6 @@ typedef struct bgjob_l {
 
 typedef struct fgjob_l {
   pid_t pid;
-  int jobid;
   char* cmdline;
 } fgjobL;
 
@@ -192,7 +191,7 @@ void RunCmdPipe(commandT** cmd, int n)
     for (i = 0; i < n - 1; i++) {
       if (pipe(pipefd[i]) < 0) {
         perror("Couldn't Pipe");
-        exit(EXIT_FAILURE);
+        exit(-1);
       }
     }
 
@@ -205,14 +204,14 @@ void RunCmdPipe(commandT** cmd, int n)
           if (i < n - 1){
             if (dup2(pipefd[i][1], 1) < 0){
               perror("dup2");
-              exit(EXIT_FAILURE);
+              exit(-1);
             }
           }
 
           if (i > 0 ){
             if (dup2(pipefd[i - 1][0], 0) < 0){
               perror("dup2");
-              exit(EXIT_FAILURE);
+              exit(-1);
             }
           }
 
@@ -226,7 +225,7 @@ void RunCmdPipe(commandT** cmd, int n)
         }
         else if(pid < 0){
           perror("error");
-          exit(EXIT_FAILURE);
+          exit(-1);
         }
     }
 

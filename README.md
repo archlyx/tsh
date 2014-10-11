@@ -1,86 +1,213 @@
-# tsh #
+# TSH
 
+[NAME](#NAME)
 
-File:         README
-RCS:          $Id: README,v 1.1 2005/10/13 05:24:59 sbirrer Exp $
-Description:  README file for tsh project
-Author:       Fabian E. Bustamante
-              Northwestern Systems Research Group
-              Department of Computer Science
-              Northwestern University
-Created:      Thu Oct 14, 2004 at 08:37:34
-Modified:     Thu Oct 14, 2004 at 09:02:07 fabianb@cs.northwestern.edu
-Language:     N/A
-Package:      N/A
-Status:       Experimental (Do Not Distribute)
+[SYNOPSIS](#SYNOPSIS)
 
-(C) Copyright 2004, Northwestern University, all rights reserved.
+[DESCRIPTION](#DESCRIPTION)
 
+[DESIGN](#DESIGN)
 
-## What you will find here ##
+[COMMANDS](#COMMANDS)
 
-* README - what you are looking at
+[DIAGNOSTICS](#DIAGNOSTICS)
 
-* Makefile - Makefile for the whole project, remember to update your team name. As in your previous project there are two less-common targets you need to be aware of: test-reg and handin.
+[BUGS](#BUGS)
 
-* config.h - Project config files
+[AUTHOR](#AUTHOR)
 
-* tsh.[hc], interpreter.[hc], io.[hc], runtime.[hc] - Some basic structure for your shell project. You don't have to follow the provided organization, just satisfy the specs. 
+[SEE ALSO](#SEE ALSO)
 
-* tsh.1 - For a man page on your tsh
+* * *
 
-* grading-guide.txt - Grading policy and general guide. It tells you what we are looking for, explains how we grade your project, what the test cases are and how we use them.
+## NAME
+<a name="NAME"></a>
 
-* testsuite - A directory including the test cases described in grading-guide.txt, as well as the test harness.
+tsh &minus; A
+tiny shell similar to bash
 
-## What you should do first ##
+## SYNOPSIS
+<a name="SYNOPSIS"></a>
 
-1. First thing to do now is compile the project skeleton.
+**tsh**
 
-```bash
-[fabianb@localhost tsh_skeleton]$ make
-gcc -Wall -g -D HAVE_CONFIG_H   -c -o interpreter.o interpreter.c
-gcc -Wall -g -D HAVE_CONFIG_H   -c -o io.o io.c
-gcc -Wall -g -D HAVE_CONFIG_H   -c -o runtime.o runtime.c
-gcc -Wall -g -D HAVE_CONFIG_H   -c -o tsh.o tsh.c
-gcc -o tsh interpreter.o io.o runtime.o tsh.o
-```
+## DESCRIPTION
+<a name="DESCRIPTION"></a>
 
-Among other things you should now have the executable 'tsh'. Go ahead
-and run it
+**tsh** is a
+tiny shell program written in C. It supports **job
+control**, **pipe commands**, **redirection** and
+**alias** as well as other basic linux shell
+commands.
 
-```bash
-[fabianb@localhost tsh_skeleton]$ ./tsh
-exit
-```
+## DESIGN
+<a name="DESIGN"></a>
 
-All it understands for now is 'exit', not very interesting but
-something to get started. 
+Job Control
 
-Just before getting into the serious work, try making the handin
+Based on the linklist provided
+in the skeleton to manage background processes, _jobid_
+and _status_ are added to label the jobs and its status
+(0: Done, 1: Running, 2: Stopped). Another struct for
+foreground process is added to record whether there is a
+foreground job running. The main program is consistently
+check the status of the background jobs: if the return value
+of the _waitpid()_ is larger than zero, then the status
+of certain child processes are changed, then their newest
+info are printed. Globally the shell can catch the signal
+SIGINT and SIGTSTP sent externally. These signals are
+directly sent to all the foreground processes using
+_kill(2)_ function, according to information stored in
+the foreground job struct.
 
-```bash
-[fabianb@localhost tsh_skeleton]$ make handin
-rm -f *.o *~
-rm -f  myteam-1-tsh.tar.gz
-tar cvf myteam-1-tsh.tar config.h interpreter.c  interpreter.h  io.c  io.h  Makefile  tsh.1  tsh.c  tsh.h  README  runtime.c  runtime.h
-config.h
-interpreter.c
-interpreter.h
-io.c
-io.h
-Makefile
-tsh.1
-tsh.c
-tsh.h
-README
-runtime.c
-runtime.h
-gzip myteam-1-tsh.tar
-```
+Extra Credit: Alias &amp;
+Unalias
 
-This would leave a tar-gzip ball (which name will start with your
-team's name) in the same directory. This is what you need to submit to
-us when ready.
+A new linklist is built to
+store the information of the aliases. When the alias with
+argument is passed in the program, argument is splitted by
+the &quot;=&quot; symbol, and the string on the two sides
+are saved as they are. When a command is passed to
+_Interpret()_ , all of the arguments separated by space
+are firstly checked and replaced if they have alias in the
+shell. Specifically, the shell can successfully process the
+&quot;~&quot; symbol and replace it with **$HOME**
+environmental variable. A special case for unalias command
+is made in the Interpret() function, since the argument for
+unalias should no be translated using unalias but directly
+removed from the alias linklist.
 
-Good luck
+Extra Credit: Pipe
+
+The pipe function is
+implemented using _dup2()_ function to change the stdin
+and stdout to the file identifier provided by _pipe()_
+function. When multiple pipe commands are feed, they are
+firstly parsed by the interpreters with an array of commandT
+struct, and the execution of these commands are place in a
+loop. In each step within the loop, a new child process is
+forked to run the next command, and the parent process is
+wait for the completion. Since the built-in command can also
+be a command in the pipes, the forceFork parameter given in
+the RunCmdFork is used to prevent the RunCmdFork from
+forking new processes since this has already been done in
+the RunCmdPipe.
+
+Extra Credit: IO
+Redirection
+
+Similar to pipe function, the
+IO redirection is implemented using function. The stdout and
+stdin is directly replaced by the given file descriptors
+according to the **is_redirect_in** and
+**is_redirect_out** variables in the cmd struct.
+
+## COMMANDS
+<a name="COMMANDS"></a>
+
+cd path
+
+Change current directory to the
+given path. If the path is empty, it will change to
+**$HOME** by default.
+
+fg jobID
+
+Move the job from background to
+foreground no matter it is stopped or not.
+
+bg jobID
+
+Resume the stopped job in the
+background and make it run in the background.
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+jobs
+</td>
+<td width="5%"></td>
+<td width="76%">
+
+Show the list of background jobs and their status.
+</td>
+<td width="2%">
+</td></tr>
+</table>
+
+alias
+string=&rsquo;commands&rsquo;
+
+Alias the commands with the
+given string. If no argument is given, it will print all the
+existing aliases.
+
+unalias string
+
+Unalias the alias made
+before.
+
+[Command] &lt; filein &gt;
+fileout
+
+The standard output and input
+of the command can be redirected to/from the specified
+files.
+
+[Command 1] | [Command 2] |
+...
+
+Multiple pipe commands is
+supported.
+
+## DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+
+The following
+diagnostics may be issued on stderr:
+
+command not
+found
+
+The command is not found in the
+**$PATH**
+
+External command error
+
+Exception happens during the
+execution of the external commands.
+
+Fork failed
+
+Cannot create a new process
+
+Unalias error
+
+The number of arguments for
+unalias is wrong.
+
+## BUGS
+<a name="BUGS"></a>
+
+The pipe
+commands is not included in the job control. It also does
+not support IO redirection. The builtIn command is supported
+in pipe but does not work properly. Some of the errors are
+not handled and may lead to fatal errors.
+
+## AUTHOR
+<a name="AUTHOR"></a>
+
+Shuangping Liu
+(shuangping-liu@u.northwestern.edu)
+
+## SEE ALSO
+<a name="SEE ALSO"></a>
+
+**bash**(1)
+**waitpid**(2) **kill**(2)
+
+* * *

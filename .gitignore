@@ -33,3 +33,6 @@ src/tsh
 src/testsuite/myspin
 src/testsuite/mysplit
 src/testsuite/mystop
+
+# Packages
+*.tar.*
